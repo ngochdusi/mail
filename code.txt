@@ -1,0 +1,41 @@
+function deleteUsersAndRemoveRows() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet1');
+  const data = sheet.getDataRange().getValues();
+  const MAX_DELETE = 100;
+
+  let rowsToDelete = [];
+  let deletedCount = 0;
+
+  for (let i = 1; i < data.length; i++) { // Bỏ qua dòng tiêu đề (i = 0)
+    let row = data[i];
+    let emailFound = null;
+
+    // Tìm ô có email trong dòng này
+    for (let cell of row) {
+      if (typeof cell === 'string' && cell.includes('@')) {
+        emailFound = cell.trim();
+        break; // Dừng lại khi tìm thấy email đầu tiên trong dòng
+      }
+    }
+
+    if (!emailFound) continue;
+
+    try {
+      AdminDirectory.Users.remove(emailFound);
+      Logger.log('Đã xóa user: ' + emailFound);
+      rowsToDelete.push(i + 1); // Sheet đếm từ 1
+      deletedCount++;
+    } catch (err) {
+      Logger.log(`Lỗi khi xóa ${emailFound}: ${err.message}`);
+      // Ghi lỗi vào cột cuối dòng đó
+      sheet.getRange(i + 1, row.length + 1).setValue("Lỗi: " + err.message);
+    }
+
+    if (deletedCount >= MAX_DELETE) break;
+  }
+
+  // Xóa từ dưới lên
+  rowsToDelete.sort((a, b) => b - a).forEach(row => {
+    sheet.deleteRow(row);
+  });
+}
