@@ -6,26 +6,35 @@ function deleteUsersAndRemoveRows() {
   let rowsToDelete = [];
   let deletedCount = 0;
 
-  for (let i = 1; i < data.length; i++) {  // Bỏ qua tiêu đề
-    const email = data[i][0];
-    const status = data[i][1];
+  for (let i = 1; i < data.length; i++) { // Bỏ qua dòng tiêu đề (i = 0)
+    let row = data[i];
+    let emailFound = null;
 
-    if (!email || status === 'Đã xóa') continue;
+    // Tìm ô có email trong dòng này
+    for (let cell of row) {
+      if (typeof cell === 'string' && cell.includes('@')) {
+        emailFound = cell.trim();
+        break; // Dừng lại khi tìm thấy email đầu tiên trong dòng
+      }
+    }
+
+    if (!emailFound) continue;
 
     try {
-      AdminDirectory.Users.remove(email); // Xóa user trong Admin
-      Logger.log('Đã xóa user: ' + email);
-      rowsToDelete.push(i + 1); // Ghi lại số dòng (Google Sheet tính từ 1)
+      AdminDirectory.Users.remove(emailFound);
+      Logger.log('Đã xóa user: ' + emailFound);
+      rowsToDelete.push(i + 1); // Sheet đếm từ 1
       deletedCount++;
     } catch (err) {
-      Logger.log('Lỗi khi xóa ' + email + ': ' + err.message);
-      sheet.getRange(i + 1, 2).setValue('Lỗi: ' + err.message); // Ghi lỗi vào cột B
+      Logger.log(`Lỗi khi xóa ${emailFound}: ${err.message}`);
+      // Ghi lỗi vào cột cuối dòng đó
+      sheet.getRange(i + 1, row.length + 1).setValue("Lỗi: " + err.message);
     }
 
     if (deletedCount >= MAX_DELETE) break;
   }
 
-  // PHẢI xóa từ dưới lên để không lệch dòng
+  // Xóa từ dưới lên
   rowsToDelete.sort((a, b) => b - a).forEach(row => {
     sheet.deleteRow(row);
   });
