@@ -1,0 +1,32 @@
+function deleteUsersAndRemoveRows() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  const MAX_DELETE = 100;
+
+  let rowsToDelete = [];
+  let deletedCount = 0;
+
+  for (let i = 1; i < data.length; i++) {  // Bỏ qua tiêu đề
+    const email = data[i][0];
+    const status = data[i][1];
+
+    if (!email || status === 'Đã xóa') continue;
+
+    try {
+      AdminDirectory.Users.remove(email); // Xóa user trong Admin
+      Logger.log('Đã xóa user: ' + email);
+      rowsToDelete.push(i + 1); // Ghi lại số dòng (Google Sheet tính từ 1)
+      deletedCount++;
+    } catch (err) {
+      Logger.log('Lỗi khi xóa ' + email + ': ' + err.message);
+      sheet.getRange(i + 1, 2).setValue('Lỗi: ' + err.message); // Ghi lỗi vào cột B
+    }
+
+    if (deletedCount >= MAX_DELETE) break;
+  }
+
+  // PHẢI xóa từ dưới lên để không lệch dòng
+  rowsToDelete.sort((a, b) => b - a).forEach(row => {
+    sheet.deleteRow(row);
+  });
+}
