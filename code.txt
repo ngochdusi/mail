@@ -1,34 +1,50 @@
-function deleteUsersAndRemoveRows() {
+function deleteUsersAndRemoveRows() { 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet1');
   const data = sheet.getDataRange().getValues();
-  const MAX_DELETE = 100;
+  const MAX_DELETE = 200;
 
   let rowsToDelete = [];
   let deletedCount = 0;
 
-  for (let i = 1; i < data.length; i++) { // Bỏ qua dòng tiêu đề (i = 0)
+  for (let i = 1; i < data.length; i++) {
     let row = data[i];
     let emailFound = null;
 
-    // Tìm ô có email trong dòng này
     for (let cell of row) {
       if (typeof cell === 'string' && cell.includes('@')) {
         emailFound = cell.trim();
-        break; // Dừng lại khi tìm thấy email đầu tiên trong dòng
+        break;
       }
     }
 
     if (!emailFound) continue;
 
     try {
+      const user = AdminDirectory.Users.get(emailFound);
+
+      if (user.isAdmin || user.isDelegatedAdmin) {
+        Logger.log('Bỏ qua admin: ' + emailFound);
+        sheet.getRange(i + 1, row.length + 1).setValue("Bỏ qua: Là Admin");
+        continue;
+      }
+
       AdminDirectory.Users.remove(emailFound);
       Logger.log('Đã xóa user: ' + emailFound);
-      rowsToDelete.push(i + 1); // Sheet đếm từ 1
+      rowsToDelete.push(i + 1);
       deletedCount++;
+
     } catch (err) {
-      Logger.log(`Lỗi khi xóa ${emailFound}: ${err.message}`);
-      // Ghi lỗi vào cột cuối dòng đó
-      sheet.getRange(i + 1, row.length + 1).setValue("Lỗi: " + err.message);
+      const errorMsg = err.message || '';
+      Logger.log(`Lỗi khi xử lý ${emailFound}: ${errorMsg}`);
+
+      if (errorMsg.includes("Resource Not Found")) {
+        // Nếu không tìm thấy user thì cũng xóa dòng
+        rowsToDelete.push(i + 1);
+        Logger.log("Dòng này sẽ bị xóa vì user không tồn tại: " + emailFound);
+      } else {
+        // Ghi lỗi nếu là lỗi khác
+        sheet.getRange(i + 1, row.length + 1).setValue("Lỗi: " + errorMsg);
+      }
     }
 
     if (deletedCount >= MAX_DELETE) break;
